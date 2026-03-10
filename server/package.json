@@ -1,0 +1,19 @@
+{
+  "name": "drittfolk-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0",
+    "socket.io": "^4.8.0",
+    "better-sqlite3": "^11.8.0",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "uuid": "^11.1.0",
+    "cors": "^2.8.5"
+  }
+}
