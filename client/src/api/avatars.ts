@@ -19,6 +19,24 @@ export async function createAvatar(input: CreateAvatarInput): Promise<Avatar> {
   return res.json()
 }
 
+export interface MvdData {
+  id: string
+  name: string
+  interaction_count: number
+  last_insult: string | null
+}
+
+export async function fetchMVD(): Promise<MvdData | null> {
+  const res = await fetch(`${BASE}/avatars/mvd`)
+  if (!res.ok) throw new Error('Feil ved henting av MVD')
+  return res.json()
+}
+
+export async function deleteAvatar(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/avatars/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Feil ved sletting av avatar')
+}
+
 export async function fetchAvatarStats(id: string): Promise<AvatarStats> {
   const res = await fetch(`${BASE}/avatars/${id}/stats`)
   if (!res.ok) throw new Error('Feil ved henting av statistikk')

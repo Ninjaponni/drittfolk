@@ -1,6 +1,6 @@
 #!/bin/bash
-# Asset-konvertering: FBX → GLB med Draco-komprimering
-# Krever: npx gltf-pipeline, FBX2glTF (eller npx fbx2gltf)
+# Asset-konvertering: FBX → GLB (UTEN Draco — GLTFLoader har ikke DRACOLoader)
+# Bruker FBX2glTF-binæren via npm-pakken fbx2gltf
 
 set -e
 
@@ -34,7 +34,7 @@ for fbx in "$ANIM_SRC"/*.fbx; do
   fi
 
   echo "  Konverterer: $basename → $clean_name.glb"
-  npx fbx2gltf -i "$fbx" -o "$output" --draco 2>/dev/null || {
+  npx fbx2gltf -i "$fbx" -o "$output" 2>/dev/null || {
     echo "  ADVARSEL: Kunne ikke konvertere $basename (prøv FBX2glTF manuelt)"
   }
 done

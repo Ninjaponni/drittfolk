@@ -22,14 +22,26 @@ if (existing.count === 0) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
+  const MODELS = {
+    male: [
+      'SK_Chr_Boss_Male_01.glb', 'SK_Chr_Business_Male_01.glb', 'SK_Chr_Business_Male_02.glb',
+      'SK_Chr_Business_Male_03.glb', 'SK_Chr_Developer_Male_01.glb', 'SK_Chr_Developer_Male_02.glb',
+      'SK_Chr_Security_Male_01.glb', 'SK_Chr_Cleaner_Male_01.glb', 'SK_Chr_Business_Male_04.glb',
+    ],
+    female: [
+      'SK_Chr_Boss_Female_01.glb', 'SK_Chr_Business_Female_01.glb', 'SK_Chr_Business_Female_02.glb',
+      'SK_Chr_Business_Female_03.glb', 'SK_Chr_Developer_Female_01.glb', 'SK_Chr_Developer_Female_02.glb',
+      'SK_Chr_Security_Female_01.glb', 'SK_Chr_Cleaner_Female_01.glb', 'SK_Chr_Business_Female_04.glb',
+    ],
+  }
+
   for (const a of SEED_AVATARS) {
-    const idx = Math.floor(Math.random() * 9) + 1
-    const prefix = a.gender === 'male' ? 'Male' : 'Female'
-    const model = `SM_Chr_Developer_${prefix}_${idx.toString().padStart(2, '0')}.glb`
+    const list = MODELS[a.gender]
+    const model = list[Math.floor(Math.random() * list.length)]
     insert.run(
       uuid(), a.name, a.gender, a.language, a.personality_type, model,
       a.hair_color, a.top_color, a.pants_color,
-      (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60,
+      (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30,
     )
   }
   console.log('Seeding ferdig!')

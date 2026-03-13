@@ -1,13 +1,7 @@
 import { useState } from 'react'
-import ColorPicker from './ColorPicker'
 import PersonalityPicker from './PersonalityPicker'
 import { useAvatarStore } from '../stores/avatarStore'
 import type { PersonalityType, CreateAvatarInput } from '../../../shared/types'
-
-const COLORS = [
-  '#2D2D2D', '#8B4513', '#D4A574', '#FFD700', '#FF6B35',
-  '#C41E3A', '#1B4D3E', '#2563EB', '#7C3AED', '#EC4899',
-]
 
 interface Props {
   onClose: () => void
@@ -15,28 +9,34 @@ interface Props {
 
 export default function AvatarMaker({ onClose }: Props) {
   const addAvatar = useAvatarStore((s) => s.addAvatar)
+  const avatars = useAvatarStore((s) => s.avatars)
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [gender, setGender] = useState<'male' | 'female'>('male')
   const [personality, setPersonality] = useState<PersonalityType>('sarcastic')
-  const [hairColor, setHairColor] = useState('#2D2D2D')
-  const [topColor, setTopColor] = useState('#2563EB')
-  const [pantsColor, setPantsColor] = useState('#2D2D2D')
-  const [language, setLanguage] = useState<'no' | 'en'>('no')
+  const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const nameTaken = name.trim().length > 0 && avatars.some(
+    (a) => a.name.toLowerCase() === name.trim().toLowerCase()
+  )
 
   const steps = [
     // 0: Navn
     <div key="name" className="maker-step">
-      <label className="maker-label">Hva heter drittfolket?</label>
+      <label className="maker-label">Hva heter dummingen?</label>
       <input
         className="maker-input"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Navn..."
-        maxLength={30}
+        maxLength={20}
         autoFocus
       />
+      {nameTaken
+        ? <p className="maker-hint" style={{ color: '#e74c3c' }}>Denne dummingen er allerede i scenen</p>
+        : <p className="maker-hint">Bruk et kallenavn. Unngå fulle navn som kan identifisere noen.</p>
+      }
     </div>,
     // 1: Kjønn
     <div key="gender" className="maker-step">
@@ -51,28 +51,18 @@ export default function AvatarMaker({ onClose }: Props) {
       <label className="maker-label">Personlighetstype</label>
       <PersonalityPicker value={personality} onChange={setPersonality} />
     </div>,
-    // 3: Hårfarge
-    <div key="hair" className="maker-step">
-      <label className="maker-label">Hårfarge</label>
-      <ColorPicker colors={COLORS} value={hairColor} onChange={setHairColor} />
-    </div>,
-    // 4: Overfarge
-    <div key="top" className="maker-step">
-      <label className="maker-label">Overdel</label>
-      <ColorPicker colors={COLORS} value={topColor} onChange={setTopColor} />
-    </div>,
-    // 5: Bukse
-    <div key="pants" className="maker-step">
-      <label className="maker-label">Bukser</label>
-      <ColorPicker colors={COLORS} value={pantsColor} onChange={setPantsColor} />
-    </div>,
-    // 6: Språk
-    <div key="lang" className="maker-step">
-      <label className="maker-label">Språk for fornærmelser</label>
-      <div className="maker-options">
-        <button className={`maker-option ${language === 'no' ? 'active' : ''}`} onClick={() => setLanguage('no')}>Norsk</button>
-        <button className={`maker-option ${language === 'en' ? 'active' : ''}`} onClick={() => setLanguage('en')}>English</button>
-      </div>
+    // 3: E-post (valgfritt)
+    <div key="email" className="maker-step">
+      <label className="maker-label">Vil du følge med på dummingen din?</label>
+      <input
+        className="maker-input"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="din@epost.no (valgfritt)"
+        autoFocus
+      />
+      <p className="maker-hint">Legg inn e-post for daglige oppdateringer: hvem fornærmet deg, nemesis-status og MVD-kåring.</p>
     </div>,
   ]
 
@@ -82,11 +72,8 @@ export default function AvatarMaker({ onClose }: Props) {
     const input: CreateAvatarInput = {
       name: name.trim(),
       gender,
-      language,
       personality_type: personality,
-      hair_color: hairColor,
-      top_color: topColor,
-      pants_color: pantsColor,
+      email: email.includes('@') ? email.trim() : undefined,
     }
     await addAvatar(input)
     setSubmitting(false)
@@ -94,7 +81,9 @@ export default function AvatarMaker({ onClose }: Props) {
   }
 
   const isLast = step === steps.length - 1
-  const canNext = step === 0 ? name.trim().length > 0 : true
+  const canNext = step === 0
+    ? name.trim().length > 0 && !nameTaken
+    : true
 
   return (
     <div className="maker-overlay" onClick={onClose}>

@@ -1,4 +1,10 @@
-/* DRITTFOLK UI — glassmorphism, minimalistisk */
+/* DUMMINGENE UI — glassmorphism, minimalistisk */
+
+/* Blinkende helse-bar for kritisk livskraft */
+@keyframes healthBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
@@ -25,6 +31,12 @@
   color: rgba(0, 0, 0, 0.5);
   text-transform: uppercase;
   user-select: none;
+}
+
+.menu-version {
+  font-size: 10px;
+  opacity: 0.5;
+  letter-spacing: 0.1em;
 }
 
 .menu-actions {
@@ -68,6 +80,7 @@
   align-items: center;
   justify-content: center;
   z-index: 200;
+  pointer-events: auto;
   animation: fadeIn 0.3s ease;
 }
 
@@ -155,6 +168,14 @@
 
 .maker-input:focus {
   border-color: rgba(0, 0, 0, 0.3);
+}
+
+.maker-hint {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.4);
+  margin-top: 8px;
+  line-height: 1.4;
 }
 
 /* Options (kjønn, språk) */
@@ -361,6 +382,16 @@
   line-height: 1.4;
 }
 
+.nemesis-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+}
+.nemesis-link:hover {
+  text-decoration-color: rgba(255, 255, 255, 0.8);
+}
+
 .stats-close {
   position: absolute;
   top: 12px;
@@ -383,6 +414,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
+  pointer-events: auto;
 }
 
 .search-input {
@@ -402,6 +434,101 @@
   width: 300px;
   border-color: rgba(0, 0, 0, 0.2);
   background: rgba(255, 255, 255, 0.9);
+}
+
+/* Auto-kamera toggle */
+.auto-camera-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+  padding: 8px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.auto-camera-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* Sletteknapp i stats-panel */
+.stats-delete-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s;
+}
+
+.stats-delete-btn:hover {
+  border-color: rgba(200, 50, 50, 0.6);
+  color: rgba(200, 50, 50, 0.8);
+}
+
+.stats-delete-btn.confirm {
+  background: rgba(200, 50, 50, 0.3);
+  border-color: rgba(200, 50, 50, 0.5);
+  color: #fff;
+}
+
+.stats-delete-btn.cancel {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* MVD-badge */
+.mvd-badge {
+  position: fixed;
+  top: 60px;
+  left: 24px;
+  z-index: 100;
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: 'Inter', system-ui, sans-serif;
+  transition: opacity 0.5s ease;
+}
+
+.mvd-badge .mvd-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.4);
+  margin-bottom: 4px;
+}
+
+.mvd-badge .mvd-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.mvd-badge .mvd-count {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.4);
+  margin-top: 2px;
 }
 
 /* Animasjoner */

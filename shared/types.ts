@@ -7,9 +7,11 @@ export interface Avatar {
   language: 'no' | 'en';
   personality_type: PersonalityType;
   character_model: string;
+  texture_variant: number;
   hair_color: string;
   top_color: string;
   pants_color: string;
+  email: string;
   position_x: number;
   position_y: number;
   position_z: number;
@@ -84,6 +86,34 @@ export interface Interaction {
   created_at: string;
 }
 
+// Gyldige toner — Claude velger, systemet mapper til animasjon
+export type DialogTone =
+  | 'aggressive' | 'dismissive' | 'amused' | 'mocking' | 'shocked'
+  | 'desperate' | 'sarcastic' | 'smug' | 'defeated' | 'disgusted' | 'confused';
+
+export interface DialogLine {
+  speaker: 'speaker' | 'target';
+  text: string;
+  tone: DialogTone;
+}
+
+// Nye interaksjons-events (erstatter InsultEvent)
+export interface InteractionStartEvent {
+  id: string;
+  speakerId: string;
+  targetId: string;
+}
+
+export interface InteractionLinesEvent {
+  id: string;
+  lines: DialogLine[];
+}
+
+export interface InteractionEndEvent {
+  id: string;
+}
+
+// Beholdes for bakoverkompatibilitet
 export interface InsultEvent {
   speakerId: string;
   targetId: string;
@@ -103,9 +133,6 @@ export interface AvatarStats {
 export interface CreateAvatarInput {
   name: string;
   gender: 'male' | 'female';
-  language: 'no' | 'en';
   personality_type: PersonalityType;
-  hair_color: string;
-  top_color: string;
-  pants_color: string;
+  email?: string;
 }

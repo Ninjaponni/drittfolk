@@ -1,5 +1,4 @@
-// Synty Polygon Office Pack — 18 karaktermodeller
-// Filnavn refererer til GLB-filer i /client/public/models/characters/
+// Synty Polygon Office Pack — 18 karaktermodeller (faktiske filnavn)
 
 export type Gender = 'male' | 'female';
 
@@ -12,25 +11,25 @@ export interface CharacterModel {
 
 export const CHARACTER_MODELS: CharacterModel[] = [
   // Menn
-  { id: 'male_01', filename: 'SM_Chr_Developer_Male_01.glb', gender: 'male', label: 'Utvikler' },
-  { id: 'male_02', filename: 'SM_Chr_Business_Male_01.glb', gender: 'male', label: 'Forretningsmann' },
-  { id: 'male_03', filename: 'SM_Chr_Manager_Male_01.glb', gender: 'male', label: 'Sjef' },
-  { id: 'male_04', filename: 'SM_Chr_IT_Male_01.glb', gender: 'male', label: 'IT-fyr' },
-  { id: 'male_05', filename: 'SM_Chr_Intern_Male_01.glb', gender: 'male', label: 'Praktikant' },
-  { id: 'male_06', filename: 'SM_Chr_Janitor_Male_01.glb', gender: 'male', label: 'Vaktmester' },
-  { id: 'male_07', filename: 'SM_Chr_Security_Male_01.glb', gender: 'male', label: 'Vekter' },
-  { id: 'male_08', filename: 'SM_Chr_Delivery_Male_01.glb', gender: 'male', label: 'Budbil' },
-  { id: 'male_09', filename: 'SM_Chr_Accountant_Male_01.glb', gender: 'male', label: 'Regnskapsfører' },
+  { id: 'boss_male', filename: 'SK_Chr_Boss_Male_01.glb', gender: 'male', label: 'Sjef' },
+  { id: 'business_male_01', filename: 'SK_Chr_Business_Male_01.glb', gender: 'male', label: 'Forretningsmann' },
+  { id: 'business_male_02', filename: 'SK_Chr_Business_Male_02.glb', gender: 'male', label: 'Selger' },
+  { id: 'business_male_03', filename: 'SK_Chr_Business_Male_03.glb', gender: 'male', label: 'Konsulent' },
+  { id: 'business_male_04', filename: 'SK_Chr_Business_Male_04.glb', gender: 'male', label: 'Investor' },
+  { id: 'cleaner_male', filename: 'SK_Chr_Cleaner_Male_01.glb', gender: 'male', label: 'Vaskehjelp' },
+  { id: 'developer_male_01', filename: 'SK_Chr_Developer_Male_01.glb', gender: 'male', label: 'Utvikler' },
+  { id: 'developer_male_02', filename: 'SK_Chr_Developer_Male_02.glb', gender: 'male', label: 'Senior-dev' },
+  { id: 'security_male', filename: 'SK_Chr_Security_Male_01.glb', gender: 'male', label: 'Vekter' },
   // Kvinner
-  { id: 'female_01', filename: 'SM_Chr_Developer_Female_01.glb', gender: 'female', label: 'Utvikler' },
-  { id: 'female_02', filename: 'SM_Chr_Business_Female_01.glb', gender: 'female', label: 'Forretningskvinne' },
-  { id: 'female_03', filename: 'SM_Chr_Manager_Female_01.glb', gender: 'female', label: 'Sjef' },
-  { id: 'female_04', filename: 'SM_Chr_IT_Female_01.glb', gender: 'female', label: 'IT-dame' },
-  { id: 'female_05', filename: 'SM_Chr_Intern_Female_01.glb', gender: 'female', label: 'Praktikant' },
-  { id: 'female_06', filename: 'SM_Chr_Receptionist_Female_01.glb', gender: 'female', label: 'Resepsjonist' },
-  { id: 'female_07', filename: 'SM_Chr_HR_Female_01.glb', gender: 'female', label: 'HR' },
-  { id: 'female_08', filename: 'SM_Chr_Accountant_Female_01.glb', gender: 'female', label: 'Regnskapsfører' },
-  { id: 'female_09', filename: 'SM_Chr_Secretary_Female_01.glb', gender: 'female', label: 'Sekretær' },
+  { id: 'boss_female', filename: 'SK_Chr_Boss_Female_01.glb', gender: 'female', label: 'Sjef' },
+  { id: 'business_female_01', filename: 'SK_Chr_Business_Female_01.glb', gender: 'female', label: 'Forretningskvinne' },
+  { id: 'business_female_02', filename: 'SK_Chr_Business_Female_02.glb', gender: 'female', label: 'Selger' },
+  { id: 'business_female_03', filename: 'SK_Chr_Business_Female_03.glb', gender: 'female', label: 'Konsulent' },
+  { id: 'business_female_04', filename: 'SK_Chr_Business_Female_04.glb', gender: 'female', label: 'Investor' },
+  { id: 'cleaner_female', filename: 'SK_Chr_Cleaner_Female_01.glb', gender: 'female', label: 'Vaskehjelp' },
+  { id: 'developer_female_01', filename: 'SK_Chr_Developer_Female_01.glb', gender: 'female', label: 'Utvikler' },
+  { id: 'developer_female_02', filename: 'SK_Chr_Developer_Female_02.glb', gender: 'female', label: 'Senior-dev' },
+  { id: 'security_female', filename: 'SK_Chr_Security_Female_01.glb', gender: 'female', label: 'Vekter' },
 ];
 
 export function getModelsByGender(gender: Gender): CharacterModel[] {

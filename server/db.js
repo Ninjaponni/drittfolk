@@ -18,6 +18,7 @@ db.exec(`
     language TEXT NOT NULL DEFAULT 'no' CHECK(language IN ('no', 'en')),
     personality_type TEXT NOT NULL,
     character_model TEXT NOT NULL,
+    texture_variant INTEGER NOT NULL DEFAULT 1,
     hair_color TEXT NOT NULL DEFAULT '#2D2D2D',
     top_color TEXT NOT NULL DEFAULT '#2563EB',
     pants_color TEXT NOT NULL DEFAULT '#2D2D2D',
@@ -43,6 +44,45 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_interactions_speaker ON interactions(speaker_id);
   CREATE INDEX IF NOT EXISTS idx_interactions_target ON interactions(target_id);
+
+  -- Eksperiment-runder
+  CREATE TABLE IF NOT EXISTS rounds (
+    id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at TEXT,
+    winner_id TEXT,
+    participant_count INTEGER NOT NULL DEFAULT 0,
+    summary TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS round_participants (
+    round_id TEXT NOT NULL REFERENCES rounds(id),
+    avatar_id TEXT NOT NULL REFERENCES avatars(id),
+    final_rank INTEGER,
+    final_status INTEGER,
+    eliminated_at TEXT,
+    eliminated_by TEXT,
+    PRIMARY KEY (round_id, avatar_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS round_events (
+    id TEXT PRIMARY KEY,
+    round_id TEXT NOT NULL REFERENCES rounds(id),
+    event_type TEXT NOT NULL,
+    event_data TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_round_events_round ON round_events(round_id);
 `)
+
+// Migration: legg til email-kolonne hvis den mangler
+const cols = db.prepare("PRAGMA table_info(avatars)").all()
+if (!cols.some(c => c.name === 'email')) {
+  db.exec("ALTER TABLE avatars ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+}
+if (!cols.some(c => c.name === 'texture_variant')) {
+  db.exec("ALTER TABLE avatars ADD COLUMN texture_variant INTEGER NOT NULL DEFAULT 1")
+}
 
 export default db
