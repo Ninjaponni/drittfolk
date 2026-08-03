@@ -1,12 +1,11 @@
 /* DUMMINGENE UI — glassmorphism, minimalistisk */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 /* Blinkende helse-bar for kritisk livskraft */
 @keyframes healthBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 /* Menybar */
 .menu-bar {
@@ -555,4 +554,144 @@
 @keyframes bubbleOut {
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.8) translateY(-10px); }
+}
+
+/* === Standoff Overlay === */
+
+/* Nedtelling */
+.standoff-countdown-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.standoff-countdown-label {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 16px;
+}
+
+.standoff-countdown-number {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 120px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  animation: countdownPop 0.8s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@keyframes countdownPop {
+  0% { opacity: 0; transform: scale(1.8); }
+  30% { opacity: 1; transform: scale(0.95); }
+  50% { transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Dip-to-black */
+.standoff-dip-to-black {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+}
+
+.standoff-dip-to-black.active {
+  opacity: 1;
+}
+
+/* VS-kort */
+.standoff-vs-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.45);
+  animation: vsOverlayIn 0.6s ease, vsOverlayOut 0.8s ease 2.5s forwards;
+}
+
+@keyframes vsOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vsOverlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.standoff-vs-card {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.standoff-vs-fighter {
+  text-align: center;
+}
+
+.standoff-vs-fighter.left {
+  animation: vsSlideLeft 0.6s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.standoff-vs-fighter.right {
+  animation: vsSlideRight 0.6s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@keyframes vsSlideLeft {
+  from { opacity: 0; transform: translateX(-60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes vsSlideRight {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.standoff-vs-name {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.02em;
+}
+
+.standoff-vs-personality {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-top: 6px;
+}
+
+.standoff-vs-divider {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.2em;
+  animation: vsDividerPop 0.5s cubic-bezier(0.2, 0, 0.2, 1) 0.3s both;
+}
+
+@keyframes vsDividerPop {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
 }

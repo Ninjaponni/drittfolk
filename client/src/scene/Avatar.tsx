@@ -1,52 +1,31 @@
-import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useMovement, MovementState } from '../systems/movement'
-import {
-  createInteractionState,
-  updateInteraction,
-  startInteraction,
-  setInteractionLines,
-  approachingDone,
-  resetInteraction,
-} from '../systems/interaction'
 import { useAvatarStore } from '../stores/avatarStore'
 import {
-  DEFAULT_SPEAKER_ANIM, DEFAULT_LISTENER_ANIM, LISTENING_ANIM,
-  IDLE_POOL, WALK_MALE, WALK_FEMALE, INSULT_POOL, REACTION_POOL, randomFrom,
+  IDLE_POOL, WALK_MALE, WALK_FEMALE, INSULT_POOL, randomFrom,
 } from '../../../shared/animations'
 import type { Avatar as AvatarData } from '../../../shared/types'
 import SpeechBubble from './SpeechBubble'
 
-// Allianse-farger — fast farge per allianse-ID
-const ALLIANCE_COLORS = [
-  '#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8',
-  '#4dd0e1', '#aed581', '#ffd54f', '#ff8a65', '#9575cd',
-]
-function allianceColor(allianceId: string): string {
-  let hash = 0
-  for (let i = 0; i < allianceId.length; i++) hash = (hash * 31 + allianceId.charCodeAt(i)) | 0
-  return ALLIANCE_COLORS[Math.abs(hash) % ALLIANCE_COLORS.length]
+const CIRCLE_RADIUS = 8 // må matche server
+
+// Helse-bar farge basert på om du lever
+function healthColor(alive: boolean): string {
+  return alive ? '#66bb6a' : '#ef5350'
 }
 
-// Helse-bar farge basert på resilience
-function healthColor(r: number): string {
-  if (r > 60) return '#66bb6a'
-  if (r > 30) return '#fdd835'
-  return '#ef5350'
-}
-
-// Overlay med navn, helse-bar og allianse-prikk
+// Overlay med navn
 function AvatarOverlay({ name, avatarId }: { name: string; avatarId: string }) {
   const expAvatar = useAvatarStore((s) => s.experimentAvatars.get(avatarId))
   const roundActive = useAvatarStore((s) => s.roundActive)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-      {/* Rank for topp 3 */}
       {roundActive && expAvatar && expAvatar.rank <= 3 && (
         <div style={{
           fontSize: '9px',
@@ -58,7 +37,6 @@ function AvatarOverlay({ name, avatarId }: { name: string; avatarId: string }) {
           #{expAvatar.rank}
         </div>
       )}
-      {/* Navnelabel med allianse-prikk */}
       <div style={{
         background: 'rgba(0,0,0,0.6)',
         color: '#fff',
@@ -68,42 +46,14 @@ function AvatarOverlay({ name, avatarId }: { name: string; avatarId: string }) {
         fontFamily: 'Inter, system-ui, sans-serif',
         whiteSpace: 'nowrap',
         userSelect: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
       }}>
-        {roundActive && expAvatar?.allianceId && (
-          <span style={{
-            width: '6px', height: '6px', borderRadius: '50%',
-            background: allianceColor(expAvatar.allianceId),
-            display: 'inline-block', flexShrink: 0,
-          }} />
-        )}
         {name}
       </div>
-      {/* Helse-bar — bare under aktiv runde */}
-      {roundActive && expAvatar && (
-        <div style={{
-          width: '40px', height: '3px',
-          background: 'rgba(0,0,0,0.4)',
-          borderRadius: '2px',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            width: `${Math.max(0, Math.min(100, expAvatar.resilience))}%`,
-            height: '100%',
-            background: healthColor(expAvatar.resilience),
-            borderRadius: '2px',
-            transition: 'width 0.5s ease, background-color 0.5s ease',
-            animation: expAvatar.resilience < 10 ? 'healthBlink 0.5s infinite' : 'none',
-          }} />
-        </div>
-      )}
     </div>
   )
 }
 
-// Tekstur per pack — matche modellnavn til riktig atlas med fargevariant
+// Tekstur per pack
 function textureForModel(model: string, variant: number = 1): string {
   const v = String(variant).padStart(2, '0')
   if (model.startsWith('SK_Character_')) return `/models/characters/PolygonCity_Texture_${v}_A.png`
@@ -112,9 +62,8 @@ function textureForModel(model: string, variant: number = 1): string {
 }
 
 const CROSSFADE_DURATION = 0.3
-const APPROACH_DISTANCE = 0.5
 
-// Dying-animasjoner for eliminasjon
+// Dying-animasjoner
 const DEATH_POOL = [
   'Falling_Back_Death.glb',
   'Falling_Back_Death_2.glb',
@@ -122,18 +71,17 @@ const DEATH_POOL = [
   'Dying_Backwards.glb',
 ]
 
-// Manuell weight-blending — unngår crossFadeTo som forårsaker T-pose
+// Manuell weight-blending
 interface BlendWeights {
   idle: number
   walk: number
   gesture: number
 }
 
-// Globalt register: avatar-id → nåværende posisjon (oppdateres av useFrame)
-// Brukes for å finne partnerens faktiske posisjon ved interaksjonsstart
+// Globalt register: avatar-id → nåværende posisjon
 export const avatarPositions = new Map<string, { x: number; z: number; rotation: number }>()
 
-// Tekstur-cache per pack
+// Tekstur-cache
 const textureCache = new Map<string, Promise<THREE.Texture>>()
 function getTexture(path: string): Promise<THREE.Texture> {
   if (!textureCache.has(path)) {
@@ -148,7 +96,7 @@ function getTexture(path: string): Promise<THREE.Texture> {
   return textureCache.get(path)!
 }
 
-// Delt animasjons-cache
+// Animasjons-cache
 const clipCache = new Map<string, Promise<THREE.AnimationClip>>()
 function getClip(path: string): Promise<THREE.AnimationClip> {
   if (!clipCache.has(path)) {
@@ -162,7 +110,7 @@ function getClip(path: string): Promise<THREE.AnimationClip> {
   return clipCache.get(path)!
 }
 
-// Gradient-skyggetekstur — myk radial fade fra sentrum
+// Gradient-skyggetekstur
 let _shadowTex: THREE.Texture | null = null
 function getShadowTexture(): THREE.Texture {
   if (_shadowTex) return _shadowTex
@@ -181,7 +129,7 @@ function getShadowTexture(): THREE.Texture {
   return _shadowTex
 }
 
-// Cache for GLTF-scener
+// Scene-cache
 const sceneCache = new Map<string, Promise<THREE.Group>>()
 function getScene(modelPath: string): Promise<THREE.Group> {
   if (!sceneCache.has(modelPath)) {
@@ -190,6 +138,20 @@ function getScene(modelPath: string): Promise<THREE.Group> {
     }))
   }
   return sceneCache.get(modelPath)!
+}
+
+// Beregn sirkelposisjon fra slotIndex
+function circlePosition(slotIndex: number, totalSlots: number): { x: number; z: number } {
+  const angle = (slotIndex / totalSlots) * Math.PI * 2 - Math.PI / 2
+  return {
+    x: Math.cos(angle) * CIRCLE_RADIUS,
+    z: Math.sin(angle) * CIRCLE_RADIUS,
+  }
+}
+
+// Beregn rotasjon mot sentrum
+function rotationToCenter(pos: { x: number; z: number }): number {
+  return Math.atan2(-pos.x, -pos.z)
 }
 
 interface AvatarProps {
@@ -204,7 +166,6 @@ export default function Avatar({ data }: AvatarProps) {
   const walkActionRef = useRef<THREE.AnimationAction | null>(null)
   const gestureActionRef = useRef<THREE.AnimationAction | null>(null)
   const currentAnimRef = useRef<'idle' | 'walking' | 'gesture'>('idle')
-  // Mål-vekter — useFrame interpolerer faktiske vekter mot disse
   const targetWeights = useRef<BlendWeights>({ idle: 1, walk: 0, gesture: 0 })
   const setFocused = useAvatarStore((s) => s.setFocused)
   const handleClick = useCallback((e: any) => {
@@ -212,10 +173,7 @@ export default function Avatar({ data }: AvatarProps) {
     setFocused(data.id)
   }, [data.id, setFocused])
 
-  // Interaksjons-state (ref — oppdateres i useFrame)
-  const interactionRef = useRef(createInteractionState())
-
-  // Speech bubble — useState for re-render
+  // Speech bubble
   const [bubbleText, setBubbleText] = useState('')
 
   // Eliminasjons-state
@@ -223,11 +181,16 @@ export default function Avatar({ data }: AvatarProps) {
   const dyingAnimPlayed = useRef(false)
   const [isEliminated, setIsEliminated] = useState(false)
 
+  // Duell-state tracking
+  const duelRoleRef = useRef<'none' | 'duelist' | 'spectator'>('none')
+  const duelPhaseRef = useRef<string>('none')
+  const returnToSlotRef = useRef(false)
+  const corpseRelocatedRef = useRef(false)
+
   // Last modell + animasjoner
   useEffect(() => {
     const modelPath = `/models/characters/${data.character_model}`
     const texturePath = textureForModel(data.character_model, data.texture_variant ?? 1)
-    // Tilfeldig idle/walk fra poolene — alle konvertert med FBX2glTF
     const idleAnimPath = `/models/animations/${randomFrom(IDLE_POOL)}`
     const walkFile = data.gender === 'female' ? WALK_FEMALE : WALK_MALE
     const walkAnimPath = `/models/animations/${walkFile}`
@@ -279,11 +242,7 @@ export default function Avatar({ data }: AvatarProps) {
     }
   }, [data.character_model, data.name, data.id])
 
-  // Forrige reaksjonsanimasjon — unngå to like på rad
-  const lastReactionRef = useRef('')
-
-  // Spill gesture-animasjon (lazy-load fra fil)
-  // Bruker manuell weight-blending — ALDRI crossFadeTo (forårsaker T-pose)
+  // Gesture-avspilling
   const playGesture = useCallback((filename: string, loop = false) => {
     const mixer = mixerRef.current
     if (!mixer) return
@@ -293,21 +252,17 @@ export default function Avatar({ data }: AvatarProps) {
       const prev = gestureActionRef.current
 
       if (prev && prev !== newAction) {
-        // Overfør vekten fra forrige gesture til ny
         const prevWeight = prev.getEffectiveWeight()
         newAction.reset()
         newAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, 1)
         newAction.clampWhenFinished = true
         newAction.setEffectiveWeight(prevWeight)
         newAction.play()
-        // Stopp forrige ETTER ny er startet — atomisk bytte
         prev.stop()
       } else if (prev === newAction) {
-        // Samme clip — bare reset
         newAction.reset()
         newAction.play()
       } else {
-        // Første gesture — start med litt weight så normalisering fyller opp
         newAction.reset()
         newAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, 1)
         newAction.clampWhenFinished = true
@@ -321,7 +276,7 @@ export default function Avatar({ data }: AvatarProps) {
     }).catch(() => {})
   }, [])
 
-  // Bytt idle/walk-clip til en ny tilfeldig fra poolen
+  // Bytt idle-clip
   const swapIdleClip = useCallback(() => {
     const mixer = mixerRef.current
     if (!mixer) return
@@ -330,7 +285,7 @@ export default function Avatar({ data }: AvatarProps) {
       const prev = idleActionRef.current
       const prevWeight = prev ? prev.getEffectiveWeight() : 1
       const action = mixer.clipAction(clip)
-      if (action === prev) return // samme clip — ingenting å bytte
+      if (action === prev) return
       action.reset()
       action.setEffectiveWeight(prevWeight)
       action.play()
@@ -354,28 +309,25 @@ export default function Avatar({ data }: AvatarProps) {
         if (prev) prev.stop()
         walkActionRef.current = action
       }
-      state.current.speed = baseSpeed.current
     }).catch(() => {})
   }, [])
 
-  // Tilbake til idle fra gesture — sett mål-vekter, useFrame gjør resten
   const stopGesture = useCallback(() => {
-    swapIdleClip() // ny tilfeldig idle hver gang
+    swapIdleClip()
     currentAnimRef.current = 'idle'
     targetWeights.current = { idle: 1, walk: 0, gesture: 0 }
   }, [swapIdleClip])
 
-  // Glatte overganger — bare sett mål-vekter
   const blendToIdle = useCallback(() => {
     if (currentAnimRef.current === 'idle') return
-    swapIdleClip() // ny tilfeldig idle
+    swapIdleClip()
     currentAnimRef.current = 'idle'
     targetWeights.current = { idle: 1, walk: 0, gesture: 0 }
   }, [swapIdleClip])
 
   const blendToWalk = useCallback(() => {
     if (currentAnimRef.current === 'walking') return
-    swapWalkClip() // ny tilfeldig walk
+    swapWalkClip()
     currentAnimRef.current = 'walking'
     targetWeights.current = { idle: 0, walk: 1, gesture: 0 }
   }, [swapWalkClip])
@@ -392,41 +344,37 @@ export default function Avatar({ data }: AvatarProps) {
   })
   const movement = useMovement(state.current)
 
-  // Lytt etter interaksjons-events fra store
-  const getInteraction = useAvatarStore((s) => s.getInteractionForAvatar)
-
   useFrame((_, delta) => {
     const s = state.current
-    const interaction = interactionRef.current
-    const storeInteraction = getInteraction(data.id)
+    const store = useAvatarStore.getState()
+    const { circleSlots, totalCircleSlots, currentDuel, roundActive } = store
 
     // Oppdater globalt posisjonsregister
     avatarPositions.set(data.id, { x: s.position.x, z: s.position.z, rotation: s.rotation })
 
+    // Finn min sirkelplass
+    const mySlot = circleSlots.find(slot => slot.avatarId === data.id)
+
     // Eliminasjons-sjekk
-    const isEliminatedNow = useAvatarStore.getState().isAvatarEliminated(data.id)
+    const isEliminatedNow = store.isAvatarEliminated(data.id)
     if (isEliminatedNow && !eliminatedRef.current) {
       eliminatedRef.current = true
       setIsEliminated(true)
       setBubbleText('')
 
-      // Spill dying-animasjon
       if (!dyingAnimPlayed.current) {
         dyingAnimPlayed.current = true
         const deathAnim = DEATH_POOL[Math.floor(Math.random() * DEATH_POOL.length)]
         playGesture(deathAnim, false)
-
-        // Frys i siste frame etter animasjonen — gesture er allerede clampWhenFinished
         s.mode = 'idle'
-        s.timer = 999999 // Aldri start ny vandring
+        s.timer = 999999
       }
 
-      // Sett opacity til 0.6 for eliminerte
+      // Sett opacity til 0.6
       if (modelRef.current) {
         modelRef.current.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh
-            const mat = mesh.material as THREE.MeshStandardMaterial
+            const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial
             if (mat) {
               mat.transparent = true
               mat.opacity = 0.6
@@ -436,203 +384,177 @@ export default function Avatar({ data }: AvatarProps) {
       }
     }
 
-    // Skip all interaksjonslogikk for eliminerte
+    // Eliminerte avatarer — bare oppdater animasjon
     if (eliminatedRef.current) {
-      // Enkel ragdoll-push fra levende avatarer
-      for (const [otherId, otherPos] of avatarPositions) {
-        if (otherId === data.id) continue
-        const otherEliminated = useAvatarStore.getState().isAvatarEliminated(otherId)
-        if (otherEliminated) continue
-
-        const dx = s.position.x - otherPos.x
-        const dz = s.position.z - otherPos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist < 0.5 && dist > 0.01) {
-          // Dytt ragdollen litt
-          const pushForce = (0.5 - dist) * 0.3 * delta
-          s.position.x += (dx / dist) * pushForce
-          s.position.z += (dz / dist) * pushForce
-        }
+      // Kroppen ligger der den døde — ingen relokering
+      if (!corpseRelocatedRef.current && !currentDuel) {
+        corpseRelocatedRef.current = true
       }
 
-      // Oppdater posisjon
       if (groupRef.current) {
         groupRef.current.position.copy(s.position)
         groupRef.current.rotation.y = s.rotation
       }
 
-      // Weight-blending for dying-animasjon — same logikk som hovud-blokka
-      const blendSpeed = 1 / CROSSFADE_DURATION
-      const blendStep = Math.min(1, blendSpeed * delta)
-      const tw = targetWeights.current
-      const idle = idleActionRef.current
-      const walk = walkActionRef.current
-      const gesture = gestureActionRef.current
-
-      let idleW = idle ? THREE.MathUtils.lerp(idle.getEffectiveWeight(), tw.idle, blendStep) : 0
-      let walkW = walk ? THREE.MathUtils.lerp(walk.getEffectiveWeight(), tw.walk, blendStep) : 0
-      let gestureW = gesture ? THREE.MathUtils.lerp(gesture.getEffectiveWeight(), tw.gesture, blendStep) : 0
-
-      const total = idleW + walkW + gestureW
-      if (total > 0.001) {
-        idleW /= total
-        walkW /= total
-        gestureW /= total
-      } else {
-        idleW = 1; walkW = 0; gestureW = 0
-      }
-
-      if (idle) { idle.enabled = idleW > 0.001; idle.setEffectiveTimeScale(1); idle.setEffectiveWeight(idleW) }
-      if (walk) { walk.enabled = walkW > 0.001; walk.setEffectiveTimeScale(1); walk.setEffectiveWeight(walkW) }
-      if (gesture) { gesture.enabled = gestureW > 0.001; gesture.setEffectiveWeight(gestureW) }
-
+      // Weight-blending for dying-animasjon
+      updateWeightBlending(delta)
       mixerRef.current?.update(delta)
       return
     }
 
-    // Synkroniser med store — start approaching
-    if (storeInteraction && interaction.phase === 'none') {
-      const partnerId = storeInteraction.speakerId === data.id
-        ? storeInteraction.targetId : storeInteraction.speakerId
+    // --- Mexican Standoff logikk ---
 
-      // Beregn midtpunkt — begge avatarer går mot midten
-      const partnerPos = avatarPositions.get(partnerId)
-      if (partnerPos) {
-        const midX = (s.position.x + partnerPos.x) / 2
-        const midZ = (s.position.z + partnerPos.z) / 2
-        const dx = partnerPos.x - s.position.x
-        const dz = partnerPos.z - s.position.z
-        const len = Math.sqrt(dx * dx + dz * dz) || 1
-        const offset = 0.2
-        // Gå mot midtpunktet, men stopp litt på "min" side
-        const targetX = midX - (dx / len) * offset
-        const targetZ = midZ - (dz / len) * offset
-        startInteraction(interaction, storeInteraction.id, partnerId, targetX, targetZ)
-        // Lagre partnerens posisjon for facing-rotasjon
-        interaction.partnerPosition = { x: partnerPos.x, z: partnerPos.z }
-        s.mode = 'interacting'
-      }
-    }
+    // Fase 1: Gå til sirkelplass når runden starter
+    if (roundActive && mySlot && totalCircleSlots > 0) {
+      const slotPos = circlePosition(mySlot.slotIndex, totalCircleSlots)
 
-    // Dialoglinjer mottatt
-    if (storeInteraction && storeInteraction.lines.length > 0 && interaction.lines.length === 0) {
-      setInteractionLines(interaction, storeInteraction.lines)
-    }
+      // Er denne avataren i en aktiv duell?
+      const isInDuel = currentDuel && (currentDuel.avatarA === data.id || currentDuel.avatarB === data.id)
 
-    // Interaksjon avsluttet fra server
-    if (!storeInteraction && interaction.phase !== 'none') {
-      resetInteraction(interaction)
-      stopGesture()
-      s.mode = 'idle'
-      s.timer = 1 + Math.random() * 3
-      setBubbleText('')
-    }
+      if (isInDuel && currentDuel) {
+        const duelPhase = currentDuel.phase
 
-    // Approaching — beveg mot approach-target (midtpunktet)
-    if (interaction.phase === 'approaching' && interaction.approachTarget) {
-      const dx = interaction.approachTarget.x - s.position.x
-      const dz = interaction.approachTarget.z - s.position.z
-      const dist = Math.sqrt(dx * dx + dz * dz)
+        // Approach — gå mot sentrum
+        if (duelPhase === 'approach' && duelPhaseRef.current !== 'approach') {
+          duelPhaseRef.current = 'approach'
+          duelRoleRef.current = 'duelist'
+          movement.walkTo(0, 0)
+          blendToWalk()
+        }
 
-      if (dist < APPROACH_DISTANCE) {
-        approachingDone(interaction)
-        blendToIdle()
-        s.mode = 'interacting'
-      } else {
-        // Gå mot partner
-        const targetAngle = Math.atan2(dx, dz)
-        let angleDiff = targetAngle - s.rotation
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-        s.rotation += angleDiff * Math.min(1, 4 * delta)
+        // Faceoff — stå stille, face motstander
+        if (duelPhase === 'faceoff') {
+          duelPhaseRef.current = 'faceoff'
+          blendToIdle()
+          s.mode = 'idle'
+          // Face motstander
+          const opponentId = currentDuel.avatarA === data.id ? currentDuel.avatarB : currentDuel.avatarA
+          const opponentPos = avatarPositions.get(opponentId)
+          if (opponentPos) {
+            movement.facePoint(opponentPos.x, opponentPos.z, delta)
+          }
+        }
 
-        const step = Math.min(s.speed * delta, dist)
-        s.position.x += (dx / dist) * step
-        s.position.z += (dz / dist) * step
-        blendToWalk()
-      }
-    }
+        // Insult — speaker viser tekst + gesture, target lytter
+        if (duelPhase === 'insult' && duelPhaseRef.current !== 'insult') {
+          duelPhaseRef.current = 'insult'
 
-    // Facing — roter mot partner
-    if (interaction.phase === 'facing' && interaction.partnerPosition) {
-      const dx = interaction.partnerPosition.x - s.position.x
-      const dz = interaction.partnerPosition.z - s.position.z
-      const targetAngle = Math.atan2(dx, dz)
-      let angleDiff = targetAngle - s.rotation
-      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-      s.rotation += angleDiff * Math.min(1, 6 * delta)
-    }
+          const interaction = store.activeInteractions.get(currentDuel.id)
+          // Sjekk om denne avataren er speaker (via speakerId fra serveren)
+          const isSpeaker = interaction?.speakerId === data.id
 
-    // Oppdater interaksjonsfaser
-    if (interaction.phase !== 'none' && interaction.phase !== 'approaching') {
-      const update = updateInteraction(interaction, delta)
-
-      if (update.type === 'line_start') {
-        const line = interaction.lines[update.lineIndex]
-        if (line) {
-          const isSpeaker = storeInteraction?.speakerId === data.id
-          const isMyLine = (line.speaker === 'speaker' && isSpeaker) || (line.speaker === 'target' && !isSpeaker)
-
-          if (update.lineIndex === 0) {
-            // Fornærmelsen — speaker snakker, target står stille
-            if (isMyLine) {
+          if (interaction && interaction.lines.length > 0 && isSpeaker) {
+            const line = interaction.lines[0]
+            if (line) {
               setBubbleText(line.text)
               playGesture(randomFrom(INSULT_POOL))
-            } else {
-              setBubbleText('')
-              stopGesture()
             }
           } else {
-            // Comeback — target reagerer, speaker til idle
-            if (isMyLine) {
-              setBubbleText(line.text)
-              // Tilfeldig reaksjon, men aldri to like på rad
-              let pick = randomFrom(REACTION_POOL)
-              if (pick === lastReactionRef.current && REACTION_POOL.length > 1) {
-                pick = randomFrom(REACTION_POOL.filter(a => a !== lastReactionRef.current))
-              }
-              lastReactionRef.current = pick
-              playGesture(pick)
+            // Target — idle, ingen boble
+            blendToIdle()
+          }
+        }
+
+        // Result — vinner eller taper
+        if (duelPhase === 'result') {
+          if (currentDuel.winnerId === data.id && duelPhaseRef.current !== 'result') {
+            duelPhaseRef.current = 'result'
+            // Vinner — bare stå
+            stopGesture()
+          }
+          // Taper håndteres av eliminasjonssjekken over
+        }
+
+        // Beveg mot sentrum under approach
+        if (duelPhase === 'approach' && s.mode === 'walking') {
+          const arrived = movement.update(delta)
+          if (arrived) {
+            blendToIdle()
+            s.mode = 'idle'
+          }
+        }
+
+      } else if (!isInDuel) {
+        // Ikke i duell — sørg for at vi er på sirkelplass
+
+        if (returnToSlotRef.current || duelRoleRef.current === 'duelist') {
+          // Gå tilbake til sirkelplass etter duell
+          if (duelRoleRef.current === 'duelist' && !returnToSlotRef.current) {
+            returnToSlotRef.current = true
+            setBubbleText('') // Rydd opp boble etter duell
+            movement.walkTo(slotPos.x, slotPos.z)
+            blendToWalk()
+          }
+
+          if (returnToSlotRef.current && s.mode === 'walking') {
+            const arrived = movement.update(delta)
+            if (arrived) {
+              blendToIdle()
+              s.mode = 'idle'
+              s.rotation = rotationToCenter(slotPos)
+              duelRoleRef.current = 'none'
+              returnToSlotRef.current = false
+              duelPhaseRef.current = 'none'
+            }
+          }
+        } else {
+          // Ikke i duell — teleporter til sirkelplass om vi er langt unna, ellers stå stille
+          const dx = s.position.x - slotPos.x
+          const dz = s.position.z - slotPos.z
+          const distToSlot = Math.sqrt(dx * dx + dz * dz)
+
+          if (distToSlot > 0.5 && duelRoleRef.current === 'none') {
+            // Teleporter direkte til sirkelplass (skjer under dip-to-black)
+            s.position.set(slotPos.x, 0, slotPos.z)
+            s.rotation = rotationToCenter(slotPos)
+            s.mode = 'idle'
+            blendToIdle()
+          } else {
+            // Allerede på plass — idle, face sentrum
+            blendToIdle()
+            s.mode = 'idle'
+
+            // Se på duellen (face sentrum)
+            if (currentDuel) {
+              movement.facePoint(0, 0, delta)
             } else {
-              setBubbleText('')
-              stopGesture()
+              // Langsomt roter mot sentrum
+              const targetRot = rotationToCenter(slotPos)
+              let diff = targetRot - s.rotation
+              while (diff > Math.PI) diff -= Math.PI * 2
+              while (diff < -Math.PI) diff += Math.PI * 2
+              s.rotation += diff * Math.min(1, 2 * delta)
             }
           }
         }
       }
+    } else if (!roundActive) {
+      // Utenfor runde — reset alt for ny runde
+      duelRoleRef.current = 'none'
+      duelPhaseRef.current = 'none'
+      returnToSlotRef.current = false
+      corpseRelocatedRef.current = false
 
-      if (update.type === 'all_lines_done') {
-        setBubbleText('')
-      }
-
-      if (update.type === 'done') {
+      // Reset eliminerings-state slik at avatarer kan brukes igjen
+      if (eliminatedRef.current) {
+        eliminatedRef.current = false
+        dyingAnimPlayed.current = false
+        setIsEliminated(false)
         stopGesture()
         s.mode = 'idle'
-        s.timer = 1 + Math.random() * 3
-        setBubbleText('')
-      }
-    }
+        s.timer = 1
 
-    // Vanlig bevegelse (bare når ikke i interaksjon)
-    if (interaction.phase === 'none') {
-      // Filtrer ut eliminerte avatarer fra separasjon — døde skal ikke blokkere levende
-      const livePositions = new Map<string, { x: number; z: number; rotation: number }>()
-      for (const [id, pos] of avatarPositions) {
-        if (!useAvatarStore.getState().isAvatarEliminated(id)) {
-          livePositions.set(id, pos)
-        }
-      }
-      movement.update(delta, data.id, livePositions)
-
-      const idle = idleActionRef.current
-      const walk = walkActionRef.current
-      if (idle && walk && currentAnimRef.current !== 'gesture') {
-        const shouldWalk = s.mode === 'walking'
-        if (shouldWalk && currentAnimRef.current !== 'walking') {
-          blendToWalk()
-        } else if (!shouldWalk && currentAnimRef.current === 'walking') {
-          blendToIdle()
+        // Gjenopprett opacity
+        if (modelRef.current) {
+          modelRef.current.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial
+              if (mat) {
+                mat.transparent = false
+                mat.opacity = 1
+              }
+            }
+          })
         }
       }
     }
@@ -643,12 +565,16 @@ export default function Avatar({ data }: AvatarProps) {
       groupRef.current.rotation.y = s.rotation
     }
 
-    // Manuell weight-blending — interpoler mot mål-vekter hvert frame
-    // VIKTIG: Total weight MÅ alltid være 1.0, ellers blander mixeren med T-pose (bind pose)
+    // Weight-blending
+    updateWeightBlending(delta)
+    mixerRef.current?.update(delta)
+  })
+
+  // Felles weight-blending funksjon
+  function updateWeightBlending(delta: number) {
     const blendSpeed = 1 / CROSSFADE_DURATION
     const blendStep = Math.min(1, blendSpeed * delta)
     const tw = targetWeights.current
-
     const idle = idleActionRef.current
     const walk = walkActionRef.current
     const gesture = gestureActionRef.current
@@ -657,41 +583,22 @@ export default function Avatar({ data }: AvatarProps) {
     let walkW = walk ? THREE.MathUtils.lerp(walk.getEffectiveWeight(), tw.walk, blendStep) : 0
     let gestureW = gesture ? THREE.MathUtils.lerp(gesture.getEffectiveWeight(), tw.gesture, blendStep) : 0
 
-    // Normaliser slik at total weight alltid er 1.0 — forhindrer T-pose
     const total = idleW + walkW + gestureW
     if (total > 0.001) {
-      idleW /= total
-      walkW /= total
-      gestureW /= total
+      idleW /= total; walkW /= total; gestureW /= total
     } else {
-      idleW = 1
-      walkW = 0
-      gestureW = 0
+      idleW = 1; walkW = 0; gestureW = 0
     }
 
-    if (idle) {
-      idle.enabled = idleW > 0.001
-      idle.setEffectiveTimeScale(1)
-      idle.setEffectiveWeight(idleW)
-    }
-    if (walk) {
-      walk.enabled = walkW > 0.001
-      walk.setEffectiveTimeScale(1)
-      walk.setEffectiveWeight(walkW)
-    }
+    if (idle) { idle.enabled = idleW > 0.001; idle.setEffectiveTimeScale(1); idle.setEffectiveWeight(idleW) }
+    if (walk) { walk.enabled = walkW > 0.001; walk.setEffectiveTimeScale(1); walk.setEffectiveWeight(walkW) }
     if (gesture) {
-      gesture.enabled = gestureW > 0.001
-      gesture.setEffectiveWeight(gestureW)
-      // Rydd opp gesture først når idle har tatt over (forhindrer T-pose gap)
+      gesture.enabled = gestureW > 0.001; gesture.setEffectiveWeight(gestureW)
       if (tw.gesture === 0 && gestureW < 0.001 && idleW > 0.9) {
-        gesture.enabled = false
-        gesture.stop()
-        gestureActionRef.current = null
+        gesture.enabled = false; gesture.stop(); gestureActionRef.current = null
       }
     }
-
-    mixerRef.current?.update(delta)
-  })
+  }
 
   return (
     <group
@@ -706,7 +613,7 @@ export default function Avatar({ data }: AvatarProps) {
         <planeGeometry args={[1.6, 1.6]} />
         <meshBasicMaterial map={getShadowTexture()} transparent depthWrite={false} />
       </mesh>
-      {/* Navnelabel + helse-bar — skjules for eliminerte */}
+      {/* Navnelabel — skjules for eliminerte */}
       {!isEliminated && (
         <Html position={[0, 2.1, 0]} center zIndexRange={[50, 50]} style={{ pointerEvents: 'none' }}>
           <AvatarOverlay name={data.name} avatarId={data.id} />

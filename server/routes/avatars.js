@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuid } from 'uuid'
 import db from '../db.js'
-import { registerAvatar, removeAvatarFromEngine } from '../behaviorEngine.js'
+import { registerAvatar, removeAvatarFromEngine } from '../duelEngine.js'
 
 const router = Router()
 
@@ -257,7 +257,7 @@ router.post('/', (req, res) => {
 
   const avatar = db.prepare('SELECT * FROM avatars WHERE id = ?').get(id)
 
-  // Registrer i behaviorEngine så den deltar i interaksjoner
+  // Registrer i duelEngine så den deltar i runder
   registerAvatar(avatar)
 
   res.status(201).json(avatar)
@@ -272,7 +272,7 @@ router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM interactions WHERE speaker_id = ? OR target_id = ?').run(avatar.id, avatar.id)
   db.prepare('DELETE FROM avatars WHERE id = ?').run(avatar.id)
 
-  // Fjern fra behaviorEngine
+  // Fjern fra duelEngine
   removeAvatarFromEngine(avatar.id)
 
   res.json({ ok: true })

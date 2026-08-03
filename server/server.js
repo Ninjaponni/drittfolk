@@ -5,7 +5,7 @@ import { Server } from 'socket.io'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import avatarRoutes from './routes/avatars.js'
-import { startBehaviorEngine, getAvatarData } from './behaviorEngine.js'
+import { startDuelEngine, getAvatarData, startRound, getCircleState } from './duelEngine.js'
 import roundManager from './roundManager.js'
 import { generateCommentary } from './llmProvider.js'
 import db from './db.js'
@@ -30,7 +30,7 @@ app.post('/api/rounds/start', (req, res) => {
   if (!avatarData || avatarData.size === 0) {
     return res.status(400).json({ error: 'Ingen avatarer registrert' })
   }
-  const roundId = roundManager.startRound(avatarData)
+  const roundId = startRound()
   if (!roundId) {
     return res.status(409).json({ error: 'Runde allerede aktiv' })
   }
@@ -65,10 +65,16 @@ app.get('{*path}', (req, res) => {
 io.on('connection', (socket) => {
   console.log('[WS] Klient tilkoblet:', socket.id)
 
-  // Send gjeldende runde-state til nye klienter
+  // Send gjeldende runde-state + sirkeldata til nye klienter
   const roundState = roundManager.getRoundState()
   if (roundState) {
     socket.emit('round-state', roundState)
+
+    // Send sirkeldata slik at avatarer plasseres riktig
+    const circleState = getCircleState()
+    if (circleState) {
+      socket.emit('circle-setup', circleState)
+    }
   }
 
   socket.on('disconnect', () => {
@@ -78,20 +84,20 @@ io.on('connection', (socket) => {
 
 // Initialiser roundManager med io og kommentar-callback
 roundManager.init(io)
-roundManager.setCommentaryCallback(async (trigger, context) => {
+roundManager.setCommentaryCallback(async (trigger, context, focusIds = []) => {
   try {
     const commentary = await generateCommentary(trigger, context)
     if (commentary && commentary.length > 0) {
-      io.emit('commentary', { lines: commentary, trigger })
+      io.emit('commentary', { lines: commentary, trigger, focusIds })
     }
   } catch (err) {
     console.warn('[Commentary] Feil ved generering:', err.message)
   }
 })
 
-// Kjør seed ved oppstart (idempotent), deretter behavior engine
+// Kjør seed ved oppstart, deretter duel engine
 import('./seed.js').then(() => {
-  startBehaviorEngine(io)
+  startDuelEngine(io)
 })
 
 httpServer.listen(PORT, () => {
@@ -105,5 +111,4 @@ cron.schedule('0 8 * * *', async () => {
   await sendDailyEmails()
 })
 
-// Eksporter io for bruk i routes om nødvendig
 export { io }

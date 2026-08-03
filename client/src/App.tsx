@@ -7,6 +7,7 @@ import SearchBar from './ui/SearchBar'
 import MvdBadge from './ui/MvdBadge'
 import CommentaryBanner from './ui/CommentaryBanner'
 import RoundHud from './ui/RoundHud'
+import StandoffOverlay from './ui/StandoffOverlay'
 import { useAutoHide } from './hooks/useAutoHide'
 import { useAvatarStore } from './stores/avatarStore'
 import './ui/styles/ui.css'
@@ -19,7 +20,7 @@ export default function App() {
   const roundTimeRemaining = useAvatarStore((s) => s.roundTimeRemaining)
   const currentCommentary = useAvatarStore((s) => s.currentCommentary)
   const killFeed = useAvatarStore((s) => s.killFeed)
-  const popCommentary = useAvatarStore((s) => s.popCommentary)
+  const roundWinner = useAvatarStore((s) => s.roundWinner)
 
   return (
     <>
@@ -39,6 +40,7 @@ export default function App() {
         <MvdBadge />
       </div>
       <StatsPanel />
+      <StandoffOverlay />
 
       {/* Runde-HUD */}
       {roundActive && (
@@ -54,6 +56,34 @@ export default function App() {
           key={currentCommentary.trigger + '-' + currentCommentary.lines.map(l => l.text).join('')}
           lines={currentCommentary.lines}
         />
+      )}
+
+      {/* Vinner-skjerm */}
+      {roundWinner && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 200,
+          background: 'rgba(0,0,0,0.5)',
+          animation: 'fadeIn 1s ease',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            textAlign: 'center',
+            fontFamily: "'Inter', system-ui, sans-serif",
+            color: '#fff',
+          }}>
+            <div style={{ fontSize: 18, opacity: 0.7, marginBottom: 8, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+              Siste overlevende
+            </div>
+            <div style={{ fontSize: 48, fontWeight: 700, letterSpacing: '0.05em' }}>
+              {roundWinner.name}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Auto-kamera toggle */}

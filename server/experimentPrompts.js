@@ -1,48 +1,44 @@
-// LLM-prompts for to-kommentator-systemet
-// A = analytikeren (tørr, faktabasert)
-// B = den engasjerte (emosjonell, observant)
+// LLM-prompts for to-kommentator-systemet — Mexican Standoff
+// A = kald, presis analytiker
+// B = engasjert, metaforisk kommentator
 
-// Systemprompt — alltid inkludert
-const SYSTEM_PROMPT = `DU ER TO KOMMENTATORER FOR ET LIVE SOSIALT EKSPERIMENT der avatarer fornærmer hverandre til noen bryter sammen.
+const SYSTEM_PROMPT = `DU ER TO KOMMENTATORER FOR EN MEXICAN STANDOFF.
+Avatarer står i en sirkel. To og to trekkes ut til duell i sentrum.
+Den første som fornærmer vinner — taperen faller.
 
-A er den skarpe analytikeren — kald, presis, ser mønstrene ingen andre ser. Snakker som en erfaren sjakkkommentator som analyserer et brutalt parti. Refererer alltid til ranglisten og hvem som leder. Forklarer HVORFOR ting skjer ("Ola er isolert uten allianse, og det gjør ham til fritt vilt").
+A er den kalde analytikeren — presis, ser mønstrene. Analyserer odds, hvem som gjenstår, personlighetstyper. Snakker som en erfaren sjakkkommentator. Refererer til hvem som gjenstår og hvem som er favoritter.
 
-B er den engasjerte — reagerer som en fotballkommentator i de spennende øyeblikkene. Bruker metaforer og sammenligninger ("Karen har blitt skolegårdens bølle", "Per er som den siste kyllingen i hønseflokken"). Legger merke til hvem som IKKE gjør noe. Litt varme, men aldri sentimental.
+B er den engasjerte — metaforer, spenning, western/samurai-referanser. Reagerer som en fotballkommentator i de dramatiske øyeblikkene. "Nå trekker de jern!", "Som High Noon i sentrum av sirkelen."
 
 REGLER:
 - Svar alltid som JSON: { "lines": [{ "speaker": "A", "text": "..." }, { "speaker": "B", "text": "..." }] }
-- 3-5 linjer totalt. Korte, punchige setninger. Norsk. Mørk humor.
-- FORKLAR situasjonen som om publikum ser dette for første gang: Hvem leder. Hvem er i trøbbel. Hvem allianser er farlige for.
-- Kommenter det som NETTOPP skjedde — referer til spesifikke navn og tall.
-- ALDRI bruk ordene "resilience", "dynamikk", "status" eller "mønster". Si heller "livskraft", "overlevelsesevne", "hvor lenge de har igjen", "stemningen", "det som skjer".
-- Bruk metaforer og sammenligninger — gjør det levende og forståelig.
+- Maks 2-3 linjer totalt. Korte, punchige setninger. Norsk. Mørk humor.
+- ALDRI bruk tall eller prosent. Si "favoritt", "underdog", "dark horse", "siste overlevende".
+- ALDRI bruk ordene "resilience", "dynamikk", "status" eller "mønster".
+- Kommenter matchupen FØR duellen, eller utfallet ETTER. Bruk spesifikke navn.
+- Bruk metaforer og sammenligninger — western-stil, samurai-stil, gladiator-stil.
 - VIKTIG: Svar KUN med JSON. Ingen forklaring eller annen tekst.`
 
-// Bygg bruker-prompt basert på kontekst
 function buildUserPrompt(trigger, context) {
-  return `TID: ${context.timeStr} av ${context.totalTime} — ${context.aliveCount} av ${context.totalParticipants} gjenstår
+  return `${context.duelInfo || 'Mexican Standoff'} — ${context.aliveCount} av ${context.totalParticipants} gjenstår
 
-RANGLISTE:
+GJENLEVENDE:
 ${context.rankings}
 
-ALLIANSER: ${context.alliances}
-
-SISTE 60 SEKUNDER:
+SISTE HENDELSER:
 ${context.recentEvents}
 
 TRIGGER: ${trigger}`
 }
 
-// Reaktiv kommentar — noe dramatisk skjedde
+// Reaktiv kommentar
 export function buildReactivePrompt(trigger, context) {
   const triggerDescriptions = {
-    'elimination': 'En avatar ble nettopp eliminert. Kommenter eliminasjonen, hvem som tok dem og hva det betyr for dynamikken.',
-    'mob': 'Mob-hendelse — 3+ angrep på samme avatar siste minutt. Kommenter mobbingen og konsekvensene.',
-    'alliance-formed': 'En ny allianse ble nettopp dannet. Kommenter strategien bak og hva det betyr.',
-    'alliance-broken': 'En allianse ble oppløst. Kommenter hvorfor og konsekvensene.',
-    'betrayal': 'Forræderangrep — en alliert angrep sin egen allierte. Kommenter forræderiet.',
-    'late-join': 'En ny avatar meldte seg inn midt i runden. Kommenter ankomsten og sjansene.',
-    'round-end': 'Runden er over. Gi en oppsummering — 4-6 linjer. Hvem vant og hvorfor, hva det sier om dynamikken.',
+    'duel-start': 'To duellanter trekkes ut. Kommenter matchupen — hvem er favoritt, hvem er underdog. Bygg spenning.',
+    'duel-result': 'Duellen er avgjort. Kommenter utfallet — var det overraskende? Hva betyr det for de gjenlevende?',
+    'elimination': 'En avatar falt i duell. Kommenter fallet og hva det betyr. Hvem er igjen?',
+    'late-join': 'En ny avatar meldte seg inn. Kommenter ankomsten — friskt blod i ringen.',
+    'round-end': 'Standoffen er over. Gi en oppsummering — 3-4 linjer. Hvem sto igjen og hvorfor. Episk tone.',
   }
 
   const description = triggerDescriptions[trigger] || 'Kommenter det som nettopp skjedde.'
@@ -51,13 +47,12 @@ export function buildReactivePrompt(trigger, context) {
   return { systemPrompt: SYSTEM_PROMPT, userPrompt }
 }
 
-// Proaktiv kommentar — stille periode, analyser situasjonen
+// Proaktiv kommentar — mellom dueller
 export function buildProactivePrompt(context) {
   const prompts = [
-    'Ingen dramatiske hendelser på en stund. Analyser ranglisten — hvem er i fare, hvem bygger stille, hvem er overraskende sterk.',
-    'Stille periode. Observer hvem som ikke har blitt angrepet. Spekuler om hva som kommer. Hvem gjemmer seg.',
-    'Analyser alliansene. Hvem står alene og er sårbare. Hvem har best posisjon for å overleve.',
-    'Se på livskraft-nivåene. Hvem har mest tid igjen. Hvem lever på lånt tid. Hvem kan overraske.',
+    'Mellom duellene. Se på de gjenlevende — hvem er favoritt, hvem er underdog. Hvem har overrasket.',
+    'Sirkelen tynnnes. Analyser de gjenlevende — hvem er mest fryktet, hvem gjemmer seg.',
+    'Hvem tror du tar neste duell? Hvem er dark horse. Spekuler.',
   ]
   const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]
   const userPrompt = buildUserPrompt(`ANALYSE: ${randomPrompt}`, context)
@@ -65,20 +60,9 @@ export function buildProactivePrompt(context) {
   return { systemPrompt: SYSTEM_PROMPT, userPrompt }
 }
 
-// Kontekstuell fornærmelse — LLM genererer fornærmelse for nøkkelmomenter
-export function buildContextualInsultPrompt(speakerName, targetName, speakerPersonality, context) {
-  const systemPrompt = `Du er en fornærmelsesmaskin. Skriv EN kort, kreativ fornærmelse på norsk.
-Fornærmelsen skal være fra ${speakerName} (${speakerPersonality}) til ${targetName}.
-Bare fornærmelsen, ingenting annet. Maks 15 ord. Ingen anførselstegn.`
-
-  const userPrompt = `Kontekst: ${context}`
-  return { systemPrompt, userPrompt }
-}
-
 // Parse kommentar-respons fra LLM
 export function parseCommentaryResponse(text) {
   try {
-    // Prøv direkte JSON-parse
     const data = JSON.parse(text.trim())
     if (data.lines && Array.isArray(data.lines)) {
       return data.lines.filter(l =>
@@ -86,7 +70,6 @@ export function parseCommentaryResponse(text) {
       )
     }
   } catch {
-    // Prøv å finne JSON i teksten
     const jsonMatch = text.match(/\{[\s\S]*"lines"[\s\S]*\}/)
     if (jsonMatch) {
       try {

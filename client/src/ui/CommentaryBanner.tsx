@@ -1,5 +1,6 @@
 // To-kommentator banner — typewriter-effekt, kø-system
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useAvatarStore } from '../stores/avatarStore'
 
 interface CommentaryLine {
   speaker: 'A' | 'B'
@@ -11,8 +12,8 @@ interface Props {
 }
 
 const CPS = 30 // tegn per sekund for typewriter
-const HOLD_DURATION = 8000 // vis i 8 sekunder etter siste linje
-const FADE_DURATION = 2000
+const HOLD_DURATION = 6000 // vis i 6 sekunder etter siste linje
+const FADE_DURATION = 1500
 
 export default function CommentaryBanner({ lines }: Props) {
   const [displayedLines, setDisplayedLines] = useState<Array<{ speaker: string; text: string }>>([])
@@ -40,6 +41,8 @@ export default function CommentaryBanner({ lines }: Props) {
           setVisible(false)
           setFading(false)
           setDisplayedLines([])
+          // Hent neste kommentar fra køen
+          useAvatarStore.getState().popCommentary()
         }, FADE_DURATION)
       }, HOLD_DURATION)
       return

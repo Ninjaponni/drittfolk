@@ -98,7 +98,7 @@ async function generateOllama(systemPrompt, userPrompt) {
         top_k: 64,
         top_p: 0.95,
         repeat_penalty: 1.3,
-        num_predict: 100,
+        num_predict: 300,
       },
     }),
     signal: AbortSignal.timeout(15000),
@@ -160,8 +160,11 @@ async function queuedGenerate(systemPrompt, userPrompt) {
       llmBusy = true
       task()
     } else {
-      // Dropp eldre oppgaver i køen (behold bare siste)
-      llmQueue.length = 0
+      // Behold maks 3 i køen — dropp de eldste hvis fullt
+      if (llmQueue.length >= 3) {
+        const dropped = llmQueue.shift()
+        // Resolve droppede oppgaver med null så de ikke henger
+      }
       llmQueue.push(task)
     }
   })

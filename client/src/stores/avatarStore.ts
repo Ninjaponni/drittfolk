@@ -49,6 +49,25 @@ export interface KillFeedEntry {
   timestamp: number
 }
 
+// Duell-state
+export interface DuelState {
+  id: string
+  avatarA: string
+  avatarB: string
+  phase: 'approach' | 'faceoff' | 'insult' | 'result' | 'done'
+  winnerId?: string
+  loserId?: string
+  duelNumber: number
+  totalDuels: number
+  isLastDuel: boolean
+}
+
+// Sirkel-slot
+export interface CircleSlot {
+  avatarId: string
+  slotIndex: number
+}
+
 interface AvatarStore {
   avatars: Avatar[]
   focusedId: string | null
@@ -63,10 +82,23 @@ interface AvatarStore {
   roundId: string | null
   roundTimeRemaining: number
   experimentAvatars: Map<string, ExperimentAvatarState>
-  commentaryQueue: Array<{ lines: CommentaryLine[]; trigger: string }>
-  currentCommentary: { lines: CommentaryLine[]; trigger: string } | null
+  commentaryQueue: Array<{ lines: CommentaryLine[]; trigger: string; focusIds?: string[] }>
+  currentCommentary: { lines: CommentaryLine[]; trigger: string; focusIds?: string[] } | null
+  commentaryFocusIds: string[]
   killFeed: KillFeedEntry[]
   mobTarget: string | null
+  roundWinner: { id: string; name: string } | null
+
+  // Mexican Standoff state
+  circleSlots: CircleSlot[]
+  totalCircleSlots: number
+  currentDuel: DuelState | null
+  resetCountdown: number | null
+
+  // Standoff overlay state
+  standoffCountdown: number | null
+  dipToBlack: boolean
+  vsCard: { nameA: string; nameB: string; personalityA: string; personalityB: string } | null
 
   fetchAvatars: () => Promise<void>
   addAvatar: (input: CreateAvatarInput) => Promise<Avatar>
@@ -87,11 +119,25 @@ interface AvatarStore {
   setRoundActive: (active: boolean, roundId?: string, duration?: number) => void
   updateRoundTime: (time: number) => void
   updateExperimentAvatars: (avatars: ExperimentAvatarState[]) => void
-  addCommentary: (lines: CommentaryLine[], trigger: string) => void
+  addCommentary: (lines: CommentaryLine[], trigger: string, focusIds?: string[]) => void
   popCommentary: () => void
   addKillFeedEntry: (text: string) => void
   setMobTarget: (id: string | null) => void
+  setRoundWinner: (winner: { id: string; name: string } | null) => void
   isAvatarEliminated: (id: string) => boolean
+
+  // Mexican Standoff actions
+  setCircleSetup: (slots: CircleSlot[], totalSlots: number) => void
+  setDuelStart: (duel: DuelState) => void
+  setDuelPhase: (phase: DuelState['phase']) => void
+  setDuelResult: (winnerId: string, loserId: string) => void
+  clearDuel: () => void
+  setResetCountdown: (countdown: number | null) => void
+
+  // Standoff overlay actions
+  setStandoffCountdown: (count: number | null) => void
+  setDipToBlack: (active: boolean) => void
+  setVsCard: (card: { nameA: string; nameB: string; personalityA: string; personalityB: string } | null) => void
 }
 
 export const useAvatarStore = create<AvatarStore>((set, get) => ({
@@ -110,8 +156,21 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   experimentAvatars: new Map(),
   commentaryQueue: [],
   currentCommentary: null,
+  commentaryFocusIds: [],
   killFeed: [],
   mobTarget: null,
+  roundWinner: null,
+
+  // Mexican Standoff state
+  circleSlots: [],
+  totalCircleSlots: 0,
+  currentDuel: null,
+  resetCountdown: null,
+
+  // Standoff overlay state
+  standoffCountdown: null,
+  dipToBlack: false,
+  vsCard: null,
 
   toggleAutoCamera: () => {
     set((s) => ({ autoCameraEnabled: !s.autoCameraEnabled }))
@@ -145,7 +204,6 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   addAvatarDirect: (avatar) => {
-    // Legg til uten API-kall (fra WebSocket-broadcast)
     const exists = get().avatars.some(a => a.id === avatar.id)
     if (!exists) {
       set((s) => ({ avatars: [...s.avatars, avatar] }))
@@ -211,12 +269,16 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
       roundActive: active,
       roundId: roundId || null,
       roundTimeRemaining: duration || 0,
-      ...(active ? {} : {
+      ...(active ? { roundWinner: null } : {
         experimentAvatars: new Map(),
         killFeed: [],
         currentCommentary: null,
         commentaryQueue: [],
+        commentaryFocusIds: [],
         mobTarget: null,
+        circleSlots: [],
+        totalCircleSlots: 0,
+        currentDuel: null,
       }),
     })
   },
@@ -229,20 +291,19 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
     set({ experimentAvatars: map })
   },
 
-  addCommentary: (lines, trigger) => {
+  addCommentary: (lines, trigger, focusIds) => {
     const current = get().currentCommentary
     if (current) {
-      // Kø — legg til bak
-      set({ commentaryQueue: [...get().commentaryQueue, { lines, trigger }] })
+      set({ commentaryQueue: [...get().commentaryQueue, { lines, trigger, focusIds }] })
     } else {
-      set({ currentCommentary: { lines, trigger } })
+      set({ currentCommentary: { lines, trigger, focusIds }, commentaryFocusIds: focusIds || [] })
     }
   },
 
   popCommentary: () => {
     const queue = [...get().commentaryQueue]
     const next = queue.shift() || null
-    set({ currentCommentary: next, commentaryQueue: queue })
+    set({ currentCommentary: next, commentaryQueue: queue, commentaryFocusIds: next?.focusIds || [] })
   },
 
   addKillFeedEntry: (text) => {
@@ -256,8 +317,54 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
 
   setMobTarget: (id) => set({ mobTarget: id }),
 
+  setRoundWinner: (winner) => set({ roundWinner: winner }),
+
   isAvatarEliminated: (id) => {
     const expAvatar = get().experimentAvatars.get(id)
     return expAvatar ? !expAvatar.alive : false
+  },
+
+  // Mexican Standoff actions
+  setCircleSetup: (slots, totalSlots) => {
+    set({ circleSlots: slots, totalCircleSlots: totalSlots })
+  },
+
+  setDuelStart: (duel) => {
+    set({ currentDuel: duel })
+  },
+
+  setDuelPhase: (phase) => {
+    const duel = get().currentDuel
+    if (duel) {
+      set({ currentDuel: { ...duel, phase } })
+    }
+  },
+
+  setDuelResult: (winnerId, loserId) => {
+    const duel = get().currentDuel
+    if (duel) {
+      set({ currentDuel: { ...duel, phase: 'result', winnerId, loserId } })
+    }
+  },
+
+  clearDuel: () => {
+    set({ currentDuel: null })
+  },
+
+  setResetCountdown: (countdown) => {
+    set({ resetCountdown: countdown })
+  },
+
+  // Standoff overlay actions
+  setStandoffCountdown: (count) => {
+    set({ standoffCountdown: count })
+  },
+
+  setDipToBlack: (active) => {
+    set({ dipToBlack: active })
+  },
+
+  setVsCard: (card) => {
+    set({ vsCard: card })
   },
 }))
